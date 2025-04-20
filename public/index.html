@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>עמדת צילום עצמי</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 20px; }
+    video, canvas { max-width: 100%; margin-bottom: 10px; border: 1px solid #ccc; }
+    input, button { padding: 10px; margin: 5px; }
+  </style>
+</head>
+<body dir="rtl">
+  <h1>📸 עמדת צילום</h1>
+
+  <video id="video" autoplay playsinline></video><br>
+  <button onclick="takePhoto()">צלם</button><br>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <form id="photoForm">
+    <input type="email" id="email" placeholder="הכנס כתובת מייל" required><br>
+    <button type="submit">שלח תמונה למייל</button>
+  </form>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        alert('אין גישה למצלמה: ' + err.message);
+      });
+
+    function takePhoto() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0);
+      canvas.style.display = 'block';
+    }
+
+    document.getElementById('photoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const blob = await new Promise(resolve =>
+        canvas.toBlob(resolve, 'image/jpeg')
+      );
+
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('photo', blob, 'photo.jpg');
+
+      const res = await fetch('/send-photo', {
+        method: 'POST',
+        body: formData
+      });
+
+      const text = await res.text();
+      alert(text);
+    });
+  </script>
+</body>
+</html>
+
