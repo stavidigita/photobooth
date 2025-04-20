@@ -1,66 +1,59 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>עמדת צילום עצמי</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; margin-top: 20px; }
-    video, canvas { max-width: 100%; margin-bottom: 10px; border: 1px solid #ccc; }
-    input, button { padding: 10px; margin: 5px; }
-  </style>
 </head>
-<body dir="rtl">
-  <h1>📸 עמדת צילום</h1>
+<body>
+  <h1>צלם</h1>
 
-  <video id="video" autoplay playsinline></video><br>
-  <button onclick="takePhoto()">צלם</button><br>
-
+  <video id="video" width="640" height="480" autoplay></video>
+  <br>
+  <button id="capture">צלם</button>
   <canvas id="canvas" style="display:none;"></canvas>
+  <br>
+  <img id="photo" src="" alt="התמונה שלך תופיע כאן">
+  <br>
 
-  <form id="photoForm">
-    <input type="email" id="email" placeholder="הכנס כתובת מייל" required><br>
+  <form action="/send" method="POST" enctype="multipart/form-data">
+    <input type="email" name="email" placeholder="האימייל שלך" required>
+    <input type="file" name="photo" id="fileInput" accept="image/*" required style="display:none;">
     <button type="submit">שלח תמונה למייל</button>
   </form>
 
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const context = canvas.getContext('2d');
+    const photo = document.getElementById('photo');
+    const fileInput = document.getElementById('fileInput');
+    const captureButton = document.getElementById('capture');
 
+    // הצגת וידאו מהמצלמה
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         video.srcObject = stream;
-      })
-      .catch(err => {
-        alert('אין גישה למצלמה: ' + err.message);
       });
 
-    function takePhoto() {
+    // צילום תמונה מהוידאו והמרה לקובץ
+    captureButton.addEventListener('click', () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
-      canvas.style.display = 'block';
-    }
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    document.getElementById('photoForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+      // הצגת התמונה
+      const dataURL = canvas.toDataURL('image/jpeg');
+      photo.src = dataURL;
 
-      const email = document.getElementById('email').value;
-      const blob = await new Promise(resolve =>
-        canvas.toBlob(resolve, 'image/jpeg')
-      );
-
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('photo', blob, 'photo.jpg');
-
-      const res = await fetch('/send-photo', {
-        method: 'POST',
-        body: formData
-      });
-
-      const text = await res.text();
-      alert(text);
+      // המרה ל־Blob והכנסה ל־file input (כדי לשלוח לשרת)
+      fetch(dataURL)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], "photo.jpg", { type: "image/jpeg" });
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+        });
     });
   </script>
 </body>
