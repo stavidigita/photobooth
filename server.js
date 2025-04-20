@@ -5,66 +5,57 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// מאפשר גישה לקבצי HTML, CSS ו-JS מתוך תיקיית 'public'
 app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
 
-// הגדרות שמירה לתמונות מצולמות
+// הגדרות Multer לשמירת התמונות
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-// אם תיקיית 'uploads' לא קיימת – צור אותה
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
-}
-
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// ✉️ הגדרת שליחה דרך MailerSend (SMTP)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.mailersend.net',
-  port: 587,
-  secure: false,
-  auth: {
-    user: 'MS_2N1EUN@test-51ndgwvvrxxlzqx8.mlsender.net',
-    pass: 'mssp.xVwxB2w.vywj2lp7kkjl7oqz.EOWf8lG'
-  }
-});
-
-// נקודת שליחה – מקבלת תמונה וכתובת מייל
+// נתיב לקבלת התמונות ושליחת אימייל
 app.post('/send-photo', upload.single('photo'), async (req, res) => {
   const email = req.body.email;
   const photoPath = req.file.path;
 
-  const mailOptions = {
-    from: 'MS_2N1EUN@test-51ndgwvvrxxlzqx8.mlsender.net', // חייב להיות כתובת מאומתת!
-    to: email,
-    subject: '📸 התמונה שלך מהעמדה',
-    text: 'תודה שצילמת! הנה התמונה ששלחת לעצמך.',
-    attachments: [
-      {
-        filename: 'photo.jpg',
-        path: photoPath
-      }
-    ]
-  };
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.mailersend.net',
+    port: 587,
+    auth: {
+      user: 'MS_2N1EUN@test-51ndgwvvrxxlzqx8.mlsender.net', // עדכן לפי הפרטים שלך
+      pass: 'mssp.xVwxB2w.vywj2lp7kkjl7oqz.EOWf8lG'
+    }
+  });
 
   try {
-    await transporter.sendMail(mailOptions);
-    res.send('📧 התמונה נשלחה בהצלחה!');
+    await transporter.sendMail({
+      from: '"Self-Photobooth" <noreply@photobooth.com>',
+      to: email,
+      subject: '📸 הנה התמונה שלך!',
+      text: 'תודה שצילמת! מצורפת התמונה שלך.',
+      attachments: [
+        {
+          filename: req.file.originalname,
+          path: photoPath
+        }
+      ]
+    });
+
+    console.log(`✅ מייל נשלח ל־${email}`);
+    res.send('השליחה הצליחה');
   } catch (error) {
-    console.error('שגיאה בשליחה:', error);
-    res.status(500).send('❌ שליחה נכשלה');
+    console.error('❌ שגיאה בשליחת המייל:', error);
+    res.status(500).send('שליחה נכשלה');
   }
 });
 
-// הפעלת השרת
-app.listen(PORT, () => {
-  console.log(`📡 השרת רץ בכתובת: http://localhost:${PORT}`);
+// הפעלת השרת (מעודכן ל־0.0.0.0)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`📸 השרת פעיל על פורט ${PORT}`);
 });
 
