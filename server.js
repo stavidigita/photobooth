@@ -1,16 +1,23 @@
 const express = require('express');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const { Resend } = require('resend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// יצירת תקייה אם לא קיימת
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// קונפיגורציה
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 
-// הגדרות Multer לשמירת התמונות
+// הגדרת אחסון התמונות
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) =>
@@ -18,35 +25,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// נתיב לקבלת התמונות ושליחת אימייל
-app.post('/send-photo', upload.single('photo'), async (req, res) => {
+// הגדרת Resend עם משתנה סביבה
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// נתיב לשליחת תמונה במייל
+app.post('/send', upload.single('photo'), async (req, res) => {
   const email = req.body.email;
   const photoPath = req.file.path;
 
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.mailersend.net',
-    port: 587,
-    auth: {
-      user: 'MS_2N1EUN@test-51ndgwvvrxxlzqx8.mlsender.net', // עדכן לפי הפרטים שלך
-      pass: 'mssp.xVwxB2w.vywj2lp7kkjl7oqz.EOWf8lG'
-    }
-  });
-
   try {
-    await transporter.sendMail({
-      from: '"Self-Photobooth" <noreply@photobooth.com>',
+    const data = await resend.emails.send({
+      from: 'Photobooth <onboarding@resend.dev>', // כתובת מותרת לשימוש ב-Sandbox של Resend
       to: email,
-      subject: '📸 הנה התמונה שלך!',
-      text: 'תודה שצילמת! מצורפת התמונה שלך.',
+      subject: '📸 הנה התמונה שלך מהעמדה!',
+      html: '<p>תודה על הצילום! מצורפת כאן התמונה שלך.</p>',
       attachments: [
         {
           filename: req.file.originalname,
-          path: photoPath
-        }
-      ]
+          content: fs.readFileSync(photoPath).toString('base64'),
+        },
+      ],
     });
 
-    console.log(`✅ מייל נשלח ל־${email}`);
+    console.log('✅ מייל נשלח:', data);
     res.send('השליחה הצליחה');
   } catch (error) {
     console.error('❌ שגיאה בשליחת המייל:', error);
@@ -54,7 +55,7 @@ app.post('/send-photo', upload.single('photo'), async (req, res) => {
   }
 });
 
-// הפעלת השרת (מעודכן ל־0.0.0.0)
+// הפעלת השרת
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`📸 השרת פעיל על פורט ${PORT}`);
 });
