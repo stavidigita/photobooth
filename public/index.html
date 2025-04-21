@@ -1,112 +1,176 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>עמדת צילום 📸</title>
   <style>
     body {
-      background: #f9f9f9;
+      background-color: #f9f9f9;
       font-family: sans-serif;
+      direction: rtl;
       text-align: center;
-      padding-top: 40px;
+      margin: 0;
+      padding: 0;
     }
 
-    .box {
-      background: #fff;
-      display: inline-block;
-      padding: 20px;
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      background: white;
+      padding: 25px;
       border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
 
-    input, button {
-      padding: 10px;
-      margin: 10px;
-      font-size: 1rem;
+    h1 {
+      margin-bottom: 20px;
     }
 
-    video {
-      display: block;
-      margin: 10px auto;
-      max-width: 100%;
+    video, img {
+      width: 100%;
       border-radius: 10px;
-      border: 2px solid #ddd;
+      margin-top: 10px;
     }
 
     canvas {
       display: none;
     }
 
-    #message {
+    input, button {
       margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      font-size: 1em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #loader {
+      margin-top: 15px;
+      display: none;
+    }
+
+    #loader video {
+      width: 80px;
+      border-radius: 50%;
+    }
+
+    #message {
       font-weight: bold;
-      color: green;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h2>📸 עמדת צילום</h2>
-  <div class="box">
-    <input type="email" id="email" placeholder="הכנס כתובת אימייל" required><br>
-    <video id="video" autoplay></video>
-    <button id="capture">צלם</button>
-    <button id="send" disabled>שלח</button>
+  <div class="container">
+    <h1>📸 עמדת צילום</h1>
+
+    <input type="email" id="email" placeholder="הכנס כתובת אימייל" required />
+
+    <video id="video" autoplay playsinline></video>
+    <img id="preview" class="hidden" />
     <canvas id="canvas" width="640" height="480"></canvas>
+
+    <button id="capture">צלם</button>
+    <button id="retake" class="hidden">📸 צלם מחדש</button>
+    <button id="send" class="hidden">✉️ שלח</button>
+
+    <div id="loader">
+      <video src="vidu-video-2743028288669594 (1).mp4" autoplay loop muted></video>
+      <p>שולח...</p>
+    </div>
+
     <p id="message"></p>
   </div>
 
   <script>
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const captureBtn = document.getElementById("capture");
-    const sendBtn = document.getElementById("send");
-    const message = document.getElementById("message");
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const preview = document.getElementById('preview');
+    const captureBtn = document.getElementById('capture');
+    const retakeBtn = document.getElementById('retake');
+    const sendBtn = document.getElementById('send');
+    const loader = document.getElementById('loader');
+    const message = document.getElementById('message');
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        video.srcObject = stream;
-      })
-      .catch((err) => {
-        alert("⚠️ לא ניתן להפעיל מצלמה: " + err.message);
-      });
+    let stream;
 
-    captureBtn.addEventListener("click", () => {
-      const ctx = canvas.getContext("2d");
+    async function startCamera() {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    }
+
+    captureBtn.onclick = () => {
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        canvas.photoBlob = blob;
-        sendBtn.disabled = false;
-        message.textContent = "✅ תמונה מוכנה לשליחה!";
-      }, "image/jpeg");
-    });
 
-    sendBtn.addEventListener("click", () => {
-      const email = document.getElementById("email").value;
-      if (!email) return alert("אנא הכנס כתובת אימייל");
+      canvas.toBlob(blob => {
+        canvas.photoBlob = blob;
+      }, 'image/jpeg');
+
+      const dataURL = canvas.toDataURL('image/jpeg');
+      preview.src = dataURL;
+
+      preview.classList.remove('hidden');
+      video.classList.add('hidden');
+      captureBtn.classList.add('hidden');
+      retakeBtn.classList.remove('hidden');
+      sendBtn.classList.remove('hidden');
+    };
+
+    retakeBtn.onclick = () => {
+      preview.classList.add('hidden');
+      video.classList.remove('hidden');
+      captureBtn.classList.remove('hidden');
+      retakeBtn.classList.add('hidden');
+      sendBtn.classList.add('hidden');
+      message.textContent = '';
+    };
+
+    sendBtn.onclick = async () => {
+      const email = document.getElementById('email').value;
+      if (!email) return alert('אנא הזן אימייל');
 
       const formData = new FormData();
-      formData.append("email", email);
-      formData.append("photo", canvas.photoBlob, "photo.jpg");
+      formData.append('email', email);
+      formData.append('photo', canvas.photoBlob, 'photo.jpg');
 
-      sendBtn.textContent = "שולח...";
-      fetch("/send", {
-        method: "POST",
-        body: formData,
-      })
-        .then((res) => {
-          if (res.ok) {
-            message.textContent = "📩 התמונה נשלחה למייל בהצלחה!";
-            sendBtn.textContent = "נשלח!";
-            sendBtn.disabled = true;
-          } else {
-            throw new Error("שגיאה בשליחה");
-          }
-        })
-        .catch(() => {
-          message.textContent = "❌ שליחה נכשלה. נסה שוב.";
-          sendBtn.textContent = "שלח";
+      loader.style.display = 'block';
+      message.textContent = '';
+
+      try {
+        const res = await fetch('/send', {
+          method: 'POST',
+          body: formData,
         });
-    });
+
+        loader.style.display = 'none';
+
+        if (res.ok) {
+          message.textContent = '✅ התמונה נשלחה בהצלחה!';
+          sendBtn.disabled = true;
+        } else {
+          message.textContent = '❌ שגיאה בשליחה.';
+        }
+      } catch (err) {
+        loader.style.display = 'none';
+        message.textContent = '❌ שגיאה בשרת.';
+      }
+    };
+
+    startCamera();
   </script>
 </body>
 </html>
