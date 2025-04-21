@@ -1,60 +1,58 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>עמדת צילום 📸</title>
   <style>
     body {
+      background: #f9f9f9;
       font-family: sans-serif;
-      background-color: #f9f9f9;
       text-align: center;
       padding-top: 40px;
     }
 
-    .container {
-      background: white;
+    .box {
+      background: #fff;
       display: inline-block;
       padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 1rem;
     }
 
     video {
       display: block;
-      margin: 20px auto;
+      margin: 10px auto;
       max-width: 100%;
-      border: 2px solid #ccc;
-      border-radius: 8px;
+      border-radius: 10px;
+      border: 2px solid #ddd;
     }
 
     canvas {
       display: none;
     }
 
-    input,
-    button {
-      margin: 10px;
-      padding: 10px;
-      font-size: 1rem;
-    }
-
-    #success {
-      color: green;
+    #message {
       margin-top: 10px;
+      font-weight: bold;
+      color: green;
     }
   </style>
 </head>
 <body>
   <h2>📸 עמדת צילום</h2>
-  <div class="container">
-    <input type="email" id="email" placeholder="הכנס כתובת אימייל" required />
-    <br />
+  <div class="box">
+    <input type="email" id="email" placeholder="הכנס כתובת אימייל" required><br>
     <video id="video" autoplay></video>
-    <br />
     <button id="capture">צלם</button>
     <button id="send" disabled>שלח</button>
     <canvas id="canvas" width="640" height="480"></canvas>
-    <p id="success"></p>
+    <p id="message"></p>
   </div>
 
   <script>
@@ -62,5 +60,54 @@
     const canvas = document.getElementById("canvas");
     const captureBtn = document.getElementById("capture");
     const sendBtn = document.getElementById("send");
-    const successText = document
+    const message = document.getElementById("message");
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        video.srcObject = stream;
+      })
+      .catch((err) => {
+        alert("⚠️ לא ניתן להפעיל מצלמה: " + err.message);
+      });
+
+    captureBtn.addEventListener("click", () => {
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        canvas.photoBlob = blob;
+        sendBtn.disabled = false;
+        message.textContent = "✅ תמונה מוכנה לשליחה!";
+      }, "image/jpeg");
+    });
+
+    sendBtn.addEventListener("click", () => {
+      const email = document.getElementById("email").value;
+      if (!email) return alert("אנא הכנס כתובת אימייל");
+
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("photo", canvas.photoBlob, "photo.jpg");
+
+      sendBtn.textContent = "שולח...";
+      fetch("/send", {
+        method: "POST",
+        body: formData,
+      })
+        .then((res) => {
+          if (res.ok) {
+            message.textContent = "📩 התמונה נשלחה למייל בהצלחה!";
+            sendBtn.textContent = "נשלח!";
+            sendBtn.disabled = true;
+          } else {
+            throw new Error("שגיאה בשליחה");
+          }
+        })
+        .catch(() => {
+          message.textContent = "❌ שליחה נכשלה. נסה שוב.";
+          sendBtn.textContent = "שלח";
+        });
+    });
+  </script>
+</body>
+</html>
 
