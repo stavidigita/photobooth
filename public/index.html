@@ -1,59 +1,94 @@
-<!-- עודכן -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he">
 <head>
-  <meta charset="UTF-8" />
-  <title>עמדת צילום עצמי</title>
+  <meta charset="UTF-8">
+  <title>📸 עמדת צילום</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      direction: rtl;
+      padding: 30px;
+      background: #f8f8f8;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      display: inline-block;
+      box-shadow: 0 0 10px #ccc;
+    }
+    input, button {
+      display: block;
+      margin: 10px auto;
+      padding: 10px;
+      font-size: 1rem;
+    }
+    #status {
+      font-weight: bold;
+      margin-top: 15px;
+    }
+    #loader {
+      display: none;
+      margin: 10px auto;
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-  <h1>צלם</h1>
+  <h1>📸 עמדת צילום</h1>
 
-  <video id="video" width="640" height="480" autoplay></video>
-  <br>
-  <button id="capture">צלם</button>
-  <canvas id="canvas" style="display:none;"></canvas>
-  <br>
-  <img id="photo" src="" alt="התמונה שלך תופיע כאן">
-  <br>
-
-  <form action="/send" method="POST" enctype="multipart/form-data">
-    <input type="email" name="email" placeholder="האימייל שלך" required>
-    <input type="file" name="photo" id="fileInput" accept="image/*" required style="display:none;">
-    <button type="submit">שלח תמונה למייל</button>
+  <form id="photoForm" enctype="multipart/form-data">
+    <input type="email" name="email" placeholder="הכנס כתובת אימייל" required />
+    <input type="file" name="photo" accept="image/*" capture="environment" required />
+    <button type="submit">שלח</button>
+    <div id="loader"></div>
+    <p id="status"></p>
   </form>
 
   <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const photo = document.getElementById('photo');
-    const fileInput = document.getElementById('fileInput');
-    const captureButton = document.getElementById('capture');
+    const form = document.getElementById('photoForm');
+    const status = document.getElementById('status');
+    const loader = document.getElementById('loader');
 
-    // הצגת וידאו מהמצלמה
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-      });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const formData = new FormData(form);
 
-    // צילום תמונה מהוידאו והמרה לקובץ
-    captureButton.addEventListener('click', () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const context = canvas.getContext('2d');
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      loader.style.display = 'block';
+      status.textContent = '';
 
-      // הצגת התמונה
-      const dataURL = canvas.toDataURL('image/jpeg');
-      photo.src = dataURL;
-
-      // המרה ל־Blob והכנסה ל־file input (כדי לשלוח לשרת)
-      fetch(dataURL)
-        .then(res => res.blob())
-        .then(blob => {
-          const file = new File([blob], "photo.jpg", { type: "image/jpeg" });
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(file);
-          fileInput.files = dataTransfer.files;
+      fetch('/send', {
+        method: 'POST',
+        body: formData
+      })
+        .then(response => {
+          loader.style.display = 'none';
+          if (response.ok) {
+            status.textContent = '✅ התמונה נשלחה למייל בהצלחה!';
+            status.style.color = 'green';
+            form.reset();
+          } else {
+            status.textContent = '❌ הייתה שגיאה בשליחה. נסה שוב.';
+            status.style.color = 'red';
+          }
+        })
+        .catch(() => {
+          loader.style.display = 'none';
+          status.textContent = '❌ שגיאה ברשת או בשרת.';
+          status.style.color = 'red';
         });
     });
   </script>
