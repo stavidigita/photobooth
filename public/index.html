@@ -30,6 +30,8 @@
       width: 100%;
       border-radius: 10px;
       margin-top: 10px;
+      transform: scale(1);
+      transition: transform 0.3s ease;
     }
 
     canvas {
@@ -102,8 +104,10 @@
     const sendBtn = document.getElementById('send');
     const loader = document.getElementById('loader');
     const message = document.getElementById('message');
+    const emailInput = document.getElementById('email');
 
     let stream;
+    let zoomLevel = 1;
 
     async function startCamera() {
       stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -140,7 +144,7 @@
     };
 
     sendBtn.onclick = async () => {
-      const email = document.getElementById('email').value;
+      const email = emailInput.value;
       if (!email) return alert('אנא הזן אימייל');
 
       const formData = new FormData();
@@ -169,6 +173,27 @@
         message.textContent = '❌ שגיאה בשרת.';
       }
     };
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+
+      if (key === 'c' && !captureBtn.classList.contains('hidden')) {
+        captureBtn.click();
+      } else if (key === 'r' && !retakeBtn.classList.contains('hidden')) {
+        retakeBtn.click();
+      } else if (key === 's' && !sendBtn.classList.contains('hidden')) {
+        sendBtn.click();
+      } else if ((key === '+' || key === '=') && zoomLevel < 3) {
+        zoomLevel += 0.1;
+        video.style.transform = `scale(${zoomLevel.toFixed(2)})`;
+      } else if (key === '-' && zoomLevel > 1) {
+        zoomLevel -= 0.1;
+        video.style.transform = `scale(${zoomLevel.toFixed(2)})`;
+      } else if (key === '0') {
+        zoomLevel = 1;
+        video.style.transform = `scale(1)`;
+      }
+    });
 
     startCamera();
   </script>
